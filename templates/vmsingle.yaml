@@ -1,0 +1,51 @@
+{{- if .Values.components.vmstack }}
+{{- range .Values.vmsingle.instances }}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: {{ include "nectar-metrics.fullname" $ }}-{{ . }}
+  labels:
+    {{- include "nectar-metrics.labels" $ | nindent 4 }}
+spec:
+  image:
+    tag: {{ $.Values.victoriametrics.version }}
+  # Silent-data-loss guard: must be in place before the first write
+  # (the upstream default of one month deletes older samples).
+  retentionPeriod: {{ $.Values.vmsingle.retentionPeriod | quote }}
+  extraArgs:
+    {{- toYaml $.Values.vmsingle.extraArgs | nindent 4 }}
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    {{- with $.Values.vmsingle.storage.storageClassName }}
+    storageClassName: {{ . }}
+    {{- end }}
+    resources:
+      requests:
+        storage: {{ $.Values.vmsingle.storage.size }}
+  {{- with $.Values.vmsingle.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  # Keep the two replicas on different nodes ('hard' refuses to
+  # schedule them together; 'soft' allows it on small clusters).
+  affinity:
+    podAntiAffinity:
+      {{- if eq $.Values.vmsingle.antiAffinity "hard" }}
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmsingle
+      {{- else }}
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: vmsingle
+      {{- end }}
+{{- end }}
+{{- end }}

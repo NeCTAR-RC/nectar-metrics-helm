@@ -1,0 +1,35 @@
+{{- if .Values.components.vmstack }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: {{ include "nectar-metrics.fullname" . }}
+  labels:
+    {{- include "nectar-metrics.labels" . | nindent 4 }}
+spec:
+  image:
+    tag: {{ .Values.victoriametrics.version }}
+  # Push-only: the collectors send to this vmagent's ingestion
+  # endpoints; no scrape targets are selected.
+  selectAllByDefault: false
+  # Persistent queue so a vmsingle outage is buffered and replayed
+  # (this is what makes the replicated pair genuinely HA on the
+  # write path).
+  statefulMode: true
+  statefulStorage:
+    volumeClaimTemplate:
+      spec:
+        {{- with .Values.vmagent.queue.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.vmagent.queue.size }}
+  remoteWrite:
+    {{- range .Values.vmsingle.instances }}
+    - url: {{ include "nectar-metrics.vmsingleUrl" (dict "ctx" $ "suffix" .) }}/api/v1/write
+    {{- end }}
+  {{- with .Values.vmagent.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

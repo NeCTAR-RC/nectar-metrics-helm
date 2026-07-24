@@ -1,0 +1,132 @@
+# Default values for nectar-metrics-helm.
+
+components:
+  # The VictoriaMetrics custom resources. Requires the
+  # VictoriaMetrics operator (deployed separately as an ArgoCD app);
+  # on a cluster without the operator CRDs, install with
+  # vmstack=false first.
+  vmstack: true
+
+# Pinned VictoriaMetrics component image version (single binary
+# family; keep all three in lockstep).
+victoriametrics:
+  version: v1.148.0
+
+# Two independent single-node VictoriaMetrics instances, each holding
+# a full copy of the data - the upstream-recommended OSS HA pattern
+# for small workloads.
+vmsingle:
+  # Never lower this once data has been written: samples older than
+  # the retention period are silently deleted.
+  retentionPeriod: 100y
+  extraArgs:
+    # Collapses identical duplicate samples (backfill re-runs and the
+    # vmagent replication overlap).
+    dedup.minScrapeInterval: 1ms
+  storage:
+    size: 50Gi
+    # storageClassName: ceph-rbd
+  resources: {}
+  # 'hard' refuses to co-schedule the two replicas on one node;
+  # 'soft' merely prefers separation (for small clusters).
+  antiAffinity: hard
+  # Suffixes for the replicated instances.
+  instances:
+    - a
+    - b
+
+# vmagent fronts the write path: collectors push to it and it
+# replicates to both vmsingle instances, buffering to its persistent
+# queue while an instance is down and replaying when it returns.
+vmagent:
+  queue:
+    size: 5Gi
+    # storageClassName: ceph-rbd
+  resources: {}
+
+# vmauth fronts the read path with first-available failover, so
+# langstroth reads consistently from one healthy instance.
+vmauth:
+  resources: {}
+
+# The nectar-metrics collectors, run as Kubernetes CronJobs instead
+# of crontab entries on a cron host.
+collectors:
+  image:
+    repository: registry.rc.nectar.org.au/nectar/nectar-metrics
+    tag: ''  # defaults to appVersion
+    pullPolicy: IfNotPresent
+  resources: {}
+  # Persistent working directory so nova's change-over-time state
+  # (previous_servers.pickle) survives between runs. Requires a RWX
+  # storage class when cron pods can schedule on different nodes.
+  persistence:
+    enabled: true
+    size: 1Gi
+    accessModes:
+      - ReadWriteMany
+    # storageClassName: cephfs
+  jobs:
+    - name: nova
+      enabled: true
+      schedule: '*/30 * * * *'
+      entrypoint: nectar-metrics-nova
+      # Site metrics still flow to Gnocchi; status-page metrics to
+      # VictoriaMetrics.
+      protocol: gnocchi_victoria
+    - name: rcshibboleth
+      enabled: true
+      schedule: '*/30 * * * *'
+      entrypoint: nectar-metrics-rcshibboleth
+      protocol: victoria
+    - name: cinder
+      # Cinder metrics have no consumer and are due for removal.
+      enabled: false
+      schedule: '*/30 * * * *'
+      entrypoint: nectar-metrics-cinder
+      protocol: victoria
+
+# OpenStack credentials come from Vault (agent injection) in
+# production: the vault secret's key/value pairs are rendered as the
+# [openstack] section of metrics.ini.
+vault:
+  enabled: true
+  role: 'k8s'
+  settings_secret: 'path/to/vault/secret'
+
+# Non-secret collector configuration. conf.openstack is only used as
+# a fallback when vault.enabled is false (dev/test clusters).
+conf:
+  openstack:
+    user: username
+    passwd: secret
+    name: project
+    url: https://keystone.example.org:5000/v3/
+    zone: nova
+  gnocchi:
+    archive_policy: stats
+
+# Nightly logical backup: full /api/v1/export streamed to an
+# S3-compatible bucket with rclone (restore via /api/v1/import). The
+# whisper archive tarball remains the long-term disaster copy of the
+# pre-migration history.
+backup:
+  enabled: false
+  schedule: '17 2 * * *'
+  image:
+    repository: rclone/rclone
+    tag: '1.68'
+  # Existing secret providing rclone S3 env config
+  # (RCLONE_CONFIG_S3_TYPE=s3, RCLONE_CONFIG_S3_ENDPOINT=...,
+  # RCLONE_CONFIG_S3_ACCESS_KEY_ID=..., etc).
+  existingSecret: ''
+  # rclone destination, e.g. s3:nectar-metrics-backup
+  remote: ''
+
+networkPolicy:
+  enabled: false
+  # Extra namespaces allowed to reach vmauth (e.g. langstroth's).
+  readNamespaces: []
+
+nameOverride: ''
+fullnameOverride: 'nectar-metrics'

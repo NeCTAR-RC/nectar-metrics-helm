@@ -1,0 +1,28 @@
+{{- if .Values.components.vmstack }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAuth
+metadata:
+  name: {{ include "nectar-metrics.fullname" . }}
+  labels:
+    {{- include "nectar-metrics.labels" . | nindent 4 }}
+spec:
+  image:
+    tag: {{ .Values.victoriametrics.version }}
+  # Read-path failover: pin to the first healthy vmsingle rather than
+  # round-robin, so consumers see a consistent view while a replica
+  # is down or healing.
+  unauthorizedUserAccessSpec:
+    url_prefix:
+      {{- range .Values.vmsingle.instances }}
+      - {{ include "nectar-metrics.vmsingleUrl" (dict "ctx" $ "suffix" .) }}
+      {{- end }}
+    load_balancing_policy: first_available
+    retry_status_codes:
+      - 500
+      - 502
+      - 503
+  {{- with .Values.vmauth.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

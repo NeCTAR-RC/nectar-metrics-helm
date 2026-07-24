@@ -1,0 +1,27 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scope reads to vmauth (plus same-namespace traffic between the VM
+# components). The OSS binaries have no built-in auth, so network
+# policy is the access control.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nectar-metrics.fullname" . }}-read
+  labels:
+    {{- include "nectar-metrics.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmauth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+        {{- range .Values.networkPolicy.readNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - port: 8427
+{{- end }}

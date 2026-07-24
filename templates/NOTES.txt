@@ -1,0 +1,27 @@
+nectar-metrics stack deployed.
+
+Write endpoint (collectors, whisper backfill):
+  {{ include "nectar-metrics.writeUrl" . }}/api/v1/import
+
+Read endpoint (langstroth VICTORIAMETRICS_URL):
+  {{ include "nectar-metrics.readUrl" . }}
+
+Before any data is written, verify the retention gate on BOTH
+instances (the images are scratch-based, so port-forward rather than
+exec):
+{{- range .Values.vmsingle.instances }}
+  kubectl -n {{ $.Release.Namespace }} port-forward svc/vmsingle-{{ include "nectar-metrics.fullname" $ }}-{{ . }} 8428 &
+  curl -s localhost:8428/flags | grep retention
+{{- end }}
+
+Historical whisper backfill runs against the write endpoint (port
+forward or run in-cluster) with:
+  nectar-metrics-whisper --protocol victoria --victoria-url <write endpoint>
+
+After any backfill, reset the rollup caches on both instances:
+{{- range .Values.vmsingle.instances }}
+  curl {{ include "nectar-metrics.vmsingleUrl" (dict "ctx" $ "suffix" .) }}/internal/resetRollupResultCache
+{{- end }}
+
+Note: /api/v1/admin/tsdb/delete_series does not replicate; run
+admin operations against each instance individually.

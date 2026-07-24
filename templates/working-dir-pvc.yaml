@@ -1,0 +1,20 @@
+{{- if .Values.collectors.persistence.enabled }}
+# Persists nova's change-over-time state (previous_servers.pickle)
+# between CronJob runs; without it the instances_created/deleted
+# series read zero on every run.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "nectar-metrics.fullname" . }}-working-dir
+  labels:
+    {{- include "nectar-metrics.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.collectors.persistence.accessModes | nindent 4 }}
+  {{- with .Values.collectors.persistence.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.collectors.persistence.size }}
+{{- end }}

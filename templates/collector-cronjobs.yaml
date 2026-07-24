@@ -1,0 +1,99 @@
+{{- range .Values.collectors.jobs }}
+{{- if .enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "nectar-metrics.fullname" $ }}-{{ .name }}
+  labels:
+    {{- include "nectar-metrics.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: collector-{{ .name }}
+spec:
+  schedule: {{ .schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1500
+      template:
+        metadata:
+          {{- if $.Values.vault.enabled }}
+          annotations:
+            vault.hashicorp.com/role: "{{ $.Values.vault.role }}"
+            vault.hashicorp.com/agent-inject: "true"
+            # Init-container only: a sidecar would stop the Job from
+            # ever completing.
+            vault.hashicorp.com/agent-pre-populate-only: "true"
+            vault.hashicorp.com/agent-inject-secret-metrics.ini: "{{ $.Values.vault.settings_secret }}"
+            vault.hashicorp.com/agent-inject-template-metrics.ini: |
+              [metrics]
+              working_dir = /var/lib/nectar-metrics
+              log_dir = /tmp
+
+              [openstack]
+              {{ print "{{- with secret \"" $.Values.vault.settings_secret "\" -}}" }}
+              {{ print "{{- range $key, $val := .Data.data }}" }}
+              {{ print "{{ $key }} = {{ $val }}" }}
+              {{ print "{{- end }}" }}
+              {{ print "{{- end -}}" }}
+
+              [gnocchi]
+              archive_policy = {{ $.Values.conf.gnocchi.archive_policy }}
+
+              [victoria]
+              url = {{ include "nectar-metrics.writeUrl" $ }}
+          {{- end }}
+          labels:
+            {{- include "nectar-metrics.selectorLabels" $ | nindent 12 }}
+            app.kubernetes.io/component: collector-{{ .name }}
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: {{ .name }}
+              image: "{{ $.Values.collectors.image.repository }}:{{ $.Values.collectors.image.tag | default $.Chart.AppVersion }}"
+              imagePullPolicy: {{ $.Values.collectors.image.pullPolicy }}
+              args:
+                - {{ .entrypoint }}
+                - --protocol
+                - {{ .protocol }}
+                - --config
+                {{- if $.Values.vault.enabled }}
+                - /vault/secrets/metrics.ini
+                {{- else }}
+                - /etc/nectar/metrics.ini
+                {{- end }}
+                - -v
+              {{- with $.Values.collectors.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- if or (not $.Values.vault.enabled) $.Values.collectors.persistence.enabled }}
+              volumeMounts:
+                {{- if not $.Values.vault.enabled }}
+                - name: config
+                  mountPath: /etc/nectar
+                  readOnly: true
+                {{- end }}
+                {{- if $.Values.collectors.persistence.enabled }}
+                - name: working-dir
+                  mountPath: /var/lib/nectar-metrics
+                {{- end }}
+              {{- end }}
+          {{- if or (not $.Values.vault.enabled) $.Values.collectors.persistence.enabled }}
+          volumes:
+            {{- if not $.Values.vault.enabled }}
+            - name: config
+              secret:
+                secretName: {{ include "nectar-metrics.fullname" $ }}-config
+            {{- end }}
+            {{- if $.Values.collectors.persistence.enabled }}
+            - name: working-dir
+              persistentVolumeClaim:
+                claimName: {{ include "nectar-metrics.fullname" $ }}-working-dir
+            {{- end }}
+          {{- end }}
+{{- end }}
+{{- end }}

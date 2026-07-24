@@ -8,9 +8,25 @@ metadata:
 spec:
   image:
     tag: {{ .Values.victoriametrics.version }}
+  replicaCount: {{ .Values.vmagent.replicaCount }}
+  {{- if gt (int .Values.vmagent.replicaCount) 1 }}
+  # Stop a node drain evicting both replicas at once.
+  podDisruptionBudget:
+    maxUnavailable: 1
+  {{- end }}
   # Push-only: the collectors send to this vmagent's ingestion
-  # endpoints; no scrape targets are selected.
+  # endpoints; no scrape targets are selected (which also means
+  # replicas never duplicate data).
   selectAllByDefault: false
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: vmagent
   # Persistent queue so a vmsingle outage is buffered and replayed
   # (this is what makes the replicated pair genuinely HA on the
   # write path).

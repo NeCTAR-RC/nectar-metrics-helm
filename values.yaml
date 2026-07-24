@@ -39,14 +39,21 @@ vmsingle:
 # replicates to both vmsingle instances, buffering to its persistent
 # queue while an instance is down and replaying when it returns.
 vmagent:
+  # Push-only, so replicas never duplicate samples; two keep ingest
+  # available through a node failure. Each replica has its own queue
+  # volume.
+  replicaCount: 2
   queue:
     size: 5Gi
     # storageClassName: ceph-rbd
   resources: {}
 
 # vmauth fronts the read path with first-available failover, so
-# langstroth reads consistently from one healthy instance.
+# langstroth reads consistently from one healthy instance. Stateless,
+# so two replicas simply remove the read-path single point of
+# failure.
 vmauth:
+  replicaCount: 2
   resources: {}
 
 # The nectar-metrics collectors, run as Kubernetes CronJobs instead

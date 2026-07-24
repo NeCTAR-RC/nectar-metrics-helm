@@ -51,6 +51,7 @@ spec:
             app.kubernetes.io/component: collector-{{ .name }}
         spec:
           restartPolicy: Never
+          serviceAccountName: {{ include "nectar-metrics.serviceAccountName" $ }}
           {{- with $.Values.collectors.podSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

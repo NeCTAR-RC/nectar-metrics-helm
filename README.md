@@ -33,6 +33,17 @@ Ceilometer-scale telemetry stack is a separate installation.
 - A RWX-capable storage class for the collectors' working directory
   (nova's change-over-time state must persist between runs).
 
+## Pod security
+
+The chart runs under a namespace enforcing the `restricted` Pod
+Security Standard: the CronJob pods set non-root security contexts
+(the collector image's uid 42420, `nobody` for the rclone backup) and
+the VictoriaMetrics resources set `useStrictSecurity`. With Vault
+enabled, the injected agent containers must also comply, which
+requires a vault-k8s injector recent enough (>= 1.1) to set its own
+restricted-compatible security context (`AGENT_INJECT_SET_SECURITY_CONTEXT`
+is on by default).
+
 ## Cutover notes
 
 `vmsingle.retentionPeriod` must never be lowered once data is

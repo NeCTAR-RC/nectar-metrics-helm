@@ -8,6 +8,11 @@ metadata:
 spec:
   image:
     tag: {{ .Values.victoriametrics.version }}
+  # Operator-applied security context compatible with the
+  # 'restricted' Pod Security Standard (non-root, no capabilities,
+  # RuntimeDefault seccomp). Set explicitly; the operator-wide
+  # default has changed between operator releases.
+  useStrictSecurity: true
   replicaCount: {{ .Values.vmagent.replicaCount }}
   {{- if gt (int .Values.vmagent.replicaCount) 1 }}
   # Stop a node drain evicting both replicas at once.

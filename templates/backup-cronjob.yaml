@@ -25,9 +25,17 @@ spec:
             app.kubernetes.io/component: backup
         spec:
           restartPolicy: Never
+          {{- with .Values.backup.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           containers:
             - name: backup
               image: "{{ .Values.backup.image.repository }}:{{ .Values.backup.image.tag }}"
+              {{- with .Values.backup.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               args:
                 - copyurl
                 - "{{ include "nectar-metrics.vmsingleUrl" (dict "ctx" . "suffix" (first .Values.vmsingle.instances)) }}/api/v1/export?match[]={__name__=~'.%2B'}"

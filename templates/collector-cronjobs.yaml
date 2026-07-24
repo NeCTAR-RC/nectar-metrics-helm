@@ -51,10 +51,18 @@ spec:
             app.kubernetes.io/component: collector-{{ .name }}
         spec:
           restartPolicy: Never
+          {{- with $.Values.collectors.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           containers:
             - name: {{ .name }}
               image: "{{ $.Values.collectors.image.repository }}:{{ $.Values.collectors.image.tag | default $.Chart.AppVersion }}"
               imagePullPolicy: {{ $.Values.collectors.image.pullPolicy }}
+              {{- with $.Values.collectors.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               args:
                 - {{ .entrypoint }}
                 - --protocol

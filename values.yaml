@@ -64,6 +64,21 @@ collectors:
     tag: ''  # defaults to appVersion
     pullPolicy: IfNotPresent
   resources: {}
+  # The defaults satisfy the 'restricted' Pod Security Standard.
+  # uid/gid 42420 is the image's appuser (see the nectar-metrics
+  # Dockerfile); fsGroup makes the working-dir volume writable.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 42420
+    runAsGroup: 42420
+    fsGroup: 42420
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   # Persistent working directory so nova's change-over-time state
   # (previous_servers.pickle) survives between runs. Requires a RWX
   # storage class when cron pods can schedule on different nodes.
@@ -129,6 +144,20 @@ backup:
   existingSecret: ''
   # rclone destination, e.g. s3:nectar-metrics-backup
   remote: ''
+  # The rclone image defaults to root; run as nobody instead (rclone
+  # only needs env config for copyurl). The defaults satisfy the
+  # 'restricted' Pod Security Standard.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
 
 networkPolicy:
   enabled: false

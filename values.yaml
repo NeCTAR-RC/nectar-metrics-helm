@@ -103,7 +103,7 @@ collectors:
       protocol: victoria
     - name: cinder
       # Cinder metrics have no consumer and are due for removal.
-      enabled: false
+      enabled: true
       schedule: '*/30 * * * *'
       entrypoint: nectar-metrics-cinder
       protocol: victoria

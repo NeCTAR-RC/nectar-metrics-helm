@@ -137,7 +137,7 @@ backup:
   schedule: '17 2 * * *'
   image:
     repository: rclone/rclone
-    tag: '1.68'
+    tag: '1.74'
   # Existing secret providing rclone S3 env config
   # (RCLONE_CONFIG_S3_TYPE=s3, RCLONE_CONFIG_S3_ENDPOINT=...,
   # RCLONE_CONFIG_S3_ACCESS_KEY_ID=..., etc).

@@ -2,8 +2,8 @@ apiVersion: v2
 name: nectar-metrics-helm
 description: 'Nectar status-page metrics stack: an HA pair of VictoriaMetrics single-node instances (vmagent + vmauth, managed by the VictoriaMetrics operator) plus the nectar-metrics collector cron jobs that feed it.'
 type: application
-version: 0.4.1
-appVersion: 2.1.0
+version: 0.4.2
+appVersion: 2.2.0
 sources:
 - https://github.com/NeCTAR-RC/nectar-metrics-helm.git
 - https://github.com/NeCTAR-RC/nectar-metrics.git

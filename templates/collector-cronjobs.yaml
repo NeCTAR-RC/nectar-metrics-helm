@@ -75,7 +75,7 @@ spec:
                 - /etc/nectar/metrics.ini
                 {{- end }}
                 - -v
-              {{- with $.Values.collectors.resources }}
+              {{- with .resources | default $.Values.collectors.resources }}
               resources:
                 {{- toYaml . | nindent 16 }}
               {{- end }}

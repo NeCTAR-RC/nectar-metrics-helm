@@ -63,6 +63,7 @@ collectors:
     repository: registry.rc.nectar.org.au/nectar/nectar-metrics
     tag: ''  # defaults to appVersion
     pullPolicy: IfNotPresent
+  # Shared fallback for jobs without their own resources block.
   resources: {}
   # The defaults satisfy the 'restricted' Pod Security Standard.
   # uid/gid 42420 is the image's appuser (see the nectar-metrics
@@ -88,6 +89,10 @@ collectors:
     accessModes:
       - ReadWriteMany
     # storageClassName: cephfs
+  # Sizing based on prod cadvisor data (2026-07): memory limits are
+  # ~1.5-2x observed peak working set. No CPU limits: the collectors
+  # are I/O-bound on the OpenStack APIs and limits would only add
+  # throttling risk.
   jobs:
     - name: nova
       enabled: true
@@ -96,17 +101,40 @@ collectors:
       # Site metrics still flow to Gnocchi; status-page metrics to
       # VictoriaMetrics.
       protocol: gnocchi_victoria
+      # Peak ~307Mi, stable across runs; tracks cloud size, so
+      # re-check as the cloud grows.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 384Mi
+        limits:
+          memory: 512Mi
     - name: rcshibboleth
       enabled: true
       schedule: '*/30 * * * *'
       entrypoint: nectar-metrics-rcshibboleth
       protocol: victoria
+      # Peak ~5Mi, but the ~20s runtime undersamples against a ~30s
+      # scrape interval, hence the generous limit.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 32Mi
+        limits:
+          memory: 128Mi
     - name: cinder
       # Cinder metrics have no consumer and are due for removal.
       enabled: true
       schedule: '*/30 * * * *'
       entrypoint: nectar-metrics-cinder
       protocol: victoria
+      # Peak ~120Mi.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 160Mi
+        limits:
+          memory: 256Mi
 
 # OpenStack credentials come from Vault (agent injection) in
 # production: the vault secret's key/value pairs are rendered as the

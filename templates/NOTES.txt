@@ -1,6 +1,6 @@
 nectar-metrics stack deployed.
 
-Write endpoint (collectors, whisper backfill):
+Write endpoint (collectors, backup restores):
   {{ include "nectar-metrics.writeUrl" . }}/api/v1/import
 
 Read endpoint (langstroth VICTORIAMETRICS_URL):
@@ -14,11 +14,8 @@ exec):
   curl -s localhost:8428/flags | grep retention
 {{- end }}
 
-Historical whisper backfill runs against the write endpoint (port
-forward or run in-cluster) with:
-  nectar-metrics-whisper --protocol victoria --victoria-url <write endpoint>
-
-After any backfill, reset the rollup caches on both instances:
+After any backfill (e.g. a backup restore via /api/v1/import), reset
+the rollup caches on both instances:
 {{- range .Values.vmsingle.instances }}
   curl {{ include "nectar-metrics.vmsingleUrl" (dict "ctx" $ "suffix" .) }}/internal/resetRollupResultCache
 {{- end }}

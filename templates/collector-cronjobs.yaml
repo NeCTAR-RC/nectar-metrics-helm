@@ -38,7 +38,7 @@ spec:
               {{ print "{{- range $key, $val := .Data.data }}" }}
               {{ print "{{ $key }} = {{ $val }}" }}
               {{ print "{{- end }}" }}
-              {{ print "{{- end -}}" }}
+              {{ print "{{- end }}" }}
 
               [gnocchi]
               archive_policy = {{ $.Values.conf.gnocchi.archive_policy }}

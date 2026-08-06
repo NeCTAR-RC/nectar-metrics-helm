@@ -136,27 +136,29 @@ collectors:
         limits:
           memory: 256Mi
 
-# OpenStack credentials come from Vault (agent injection) in
-# production: the vault secret's key/value pairs are rendered as the
-# [openstack] section of metrics.ini. A sentry_dsn key is
-# special-cased into the [sentry] section instead, so the collectors
-# report unhandled exceptions and ERROR level log messages to
-# GlitchTip/Sentry.
+# Secrets come from Vault (agent injection) in production, following
+# the nectar-helm convention: the agent renders a secrets.conf
+# overlay into /etc/nectar-metrics/nectar-metrics.conf.d, layered
+# over the ConfigMap-rendered metrics.ini by oslo.config's default
+# config search. The settings secret holds only the actual secrets:
+# keystone_password ([service_auth] password) and optionally
+# sentry_dsn ([sentry] dsn, enabling GlitchTip/Sentry error
+# reporting).
 vault:
   enabled: true
   role: 'k8s'
   settings_secret: 'path/to/vault/secret'
 
-# Non-secret collector configuration. conf.openstack and
-# conf.sentry.dsn are only used as fallbacks when vault.enabled is
-# false (dev/test clusters).
+# Non-secret collector configuration, rendered into the metrics.ini
+# ConfigMap. service_auth uses the standard
+# keystoneauth option names. The password and sentry dsn are only
+# used as fallbacks when vault.enabled is false (dev/test clusters).
 conf:
-  openstack:
-    user: username
-    passwd: secret
-    name: project
-    url: https://keystone.example.org:5000/v3/
-    zone: nova
+  service_auth:
+    auth_url: https://keystone.example.org:5000/v3/
+    username: username
+    project_name: project
+    password: secret
   gnocchi:
     archive_policy: stats
   # GlitchTip/Sentry error reporting. In production the DSN comes

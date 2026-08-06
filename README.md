@@ -23,12 +23,17 @@ Ceilometer-scale telemetry stack is a separate installation.
   `victoria-metrics-operator` in argocd-apps). On a cluster without
   the operator CRDs, install this chart once with
   `components.vmstack=false` first.
-- Vault agent injection for the OpenStack credentials: the vault
-  secret's key/value pairs are rendered as the `[openstack]` section
-  of metrics.ini. A `sentry_dsn` key is special-cased into a
-  `[sentry]` section instead, enabling GlitchTip/Sentry error
-  reporting. Set `vault.enabled=false` on clusters without Vault to
-  fall back to a values-rendered Secret.
+- Vault agent injection for the secrets, following the nectar-helm
+  convention: the agent renders a `secrets.conf` overlay into
+  `/etc/nectar-metrics/nectar-metrics.conf.d`, layered over the
+  ConfigMap-rendered `/etc/nectar/metrics.ini` by oslo.config's
+  default config search. The settings secret holds only `keystone_password`
+  (the `[service_auth]` password) and optionally `sentry_dsn` (the
+  `[sentry]` DSN, enabling GlitchTip/Sentry error reporting).
+  Everything non-secret, including the keystone username, project and
+  auth URL, is set through values (`conf.service_auth`). Set
+  `vault.enabled=false` on clusters without Vault to fall back to a
+  values-rendered Secret.
 - A container image for the collectors
   (`registry.rc.nectar.org.au/nectar/nectar-metrics`) built from the
   nectar-metrics repo.
@@ -45,6 +50,27 @@ enabled, the injected agent containers must also comply, which
 requires a vault-k8s injector recent enough (>= 1.1) to set its own
 restricted-compatible security context (`AGENT_INJECT_SET_SECURITY_CONTEXT`
 is on by default).
+
+## Upgrading to 1.0.x
+
+Chart 1.0.0 targets the oslo.config/oslo.log based nectar-metrics
+(the release after 2.2.0) and is not compatible with older collector
+images: credentials move from `[openstack]` to the standard
+keystoneauth `[service_auth]` section, the config is read from the
+default search locations (`/etc/nectar/metrics.ini` plus the
+`/etc/nectar-metrics/nectar-metrics.conf.d` overlay dir) instead of
+an explicit `--config`, and logs go to stderr instead of files under
+/tmp.
+
+The Vault settings secret slims down to just the actual secrets.
+Before upgrading:
+
+- add `keystone_password` (the value of the old `passwd` key) and
+  keep `sentry_dsn`; the old `user`, `passwd`, `name`, `url` and
+  `zone` keys are no longer read and can be removed
+- set `conf.service_auth.username`, `conf.service_auth.project_name`
+  and `conf.service_auth.auth_url` in the deployment values (the old
+  `user`, `name` and `url` vault values)
 
 ## Cutover notes
 

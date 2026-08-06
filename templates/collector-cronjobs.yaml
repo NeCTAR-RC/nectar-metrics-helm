@@ -27,36 +27,17 @@ spec:
             # Init-container only: a sidecar would stop the Job from
             # ever completing.
             vault.hashicorp.com/agent-pre-populate-only: "true"
-            vault.hashicorp.com/agent-inject-secret-metrics.ini: "{{ $.Values.vault.settings_secret }}"
-            vault.hashicorp.com/agent-inject-template-metrics.ini: |
-              [metrics]
-              working_dir = /var/lib/nectar-metrics
-              log_dir = /tmp
-
-              [openstack]
+            vault.hashicorp.com/secret-volume-path-secrets.conf: /etc/nectar-metrics/nectar-metrics.conf.d
+            vault.hashicorp.com/agent-inject-secret-secrets.conf: "{{ $.Values.vault.settings_secret }}"
+            vault.hashicorp.com/agent-inject-template-secrets.conf: |
               {{ print "{{- with secret \"" $.Values.vault.settings_secret "\" -}}" }}
-              {{ print "{{- range $key, $val := .Data.data }}" }}
-              {{ print "{{- if ne $key \"sentry_dsn\" }}" }}
-              {{ print "{{ $key }} = {{ $val }}" }}
-              {{ print "{{- end }}" }}
-              {{ print "{{- end }}" }}
-              {{ print "{{- end }}" }}
-
-              [gnocchi]
-              archive_policy = {{ $.Values.conf.gnocchi.archive_policy }}
-
-              [victoria]
-              url = {{ include "nectar-metrics.writeUrl" $ }}
-              {{ print "{{- with secret \"" $.Values.vault.settings_secret "\" }}" }}
+              {{ print "[service_auth]" }}
+              {{ print "password = {{ .Data.data.keystone_password }}" }}
               {{ print "{{- if .Data.data.sentry_dsn }}" }}
-
-              [sentry]
+              {{ print "[sentry]" }}
               {{ print "dsn = {{ .Data.data.sentry_dsn }}" }}
-              {{- if $.Values.conf.sentry.environment }}
-              environment = {{ $.Values.conf.sentry.environment }}
-              {{- end }}
               {{ print "{{- end }}" }}
-              {{ print "{{- end }}" }}
+              {{ print "{{- end -}}" }}
           {{- end }}
           labels:
             {{- include "nectar-metrics.selectorLabels" $ | nindent 12 }}
@@ -76,45 +57,45 @@ spec:
               securityContext:
                 {{- toYaml . | nindent 16 }}
               {{- end }}
+              # No --config-file/--config-dir: /etc/nectar/metrics.ini
+              # and /etc/nectar-metrics/nectar-metrics.conf.d are on
+              # the app's default search paths.
               args:
                 - {{ .entrypoint }}
                 - --protocol
                 - {{ .protocol }}
-                - --config
-                {{- if $.Values.vault.enabled }}
-                - /vault/secrets/metrics.ini
-                {{- else }}
-                - /etc/nectar/metrics.ini
-                {{- end }}
-                - -v
               {{- with .resources | default $.Values.collectors.resources }}
               resources:
                 {{- toYaml . | nindent 16 }}
               {{- end }}
-              {{- if or (not $.Values.vault.enabled) $.Values.collectors.persistence.enabled }}
               volumeMounts:
-                {{- if not $.Values.vault.enabled }}
                 - name: config
                   mountPath: /etc/nectar
+                  readOnly: true
+                {{- if not $.Values.vault.enabled }}
+                # With Vault enabled the agent injects secrets.conf at
+                # this path instead.
+                - name: secrets
+                  mountPath: /etc/nectar-metrics/nectar-metrics.conf.d
                   readOnly: true
                 {{- end }}
                 {{- if $.Values.collectors.persistence.enabled }}
                 - name: working-dir
                   mountPath: /var/lib/nectar-metrics
                 {{- end }}
-              {{- end }}
-          {{- if or (not $.Values.vault.enabled) $.Values.collectors.persistence.enabled }}
           volumes:
-            {{- if not $.Values.vault.enabled }}
             - name: config
+              configMap:
+                name: {{ include "nectar-metrics.fullname" $ }}-config
+            {{- if not $.Values.vault.enabled }}
+            - name: secrets
               secret:
-                secretName: {{ include "nectar-metrics.fullname" $ }}-config
+                secretName: {{ include "nectar-metrics.fullname" $ }}-secrets
             {{- end }}
             {{- if $.Values.collectors.persistence.enabled }}
             - name: working-dir
               persistentVolumeClaim:
                 claimName: {{ include "nectar-metrics.fullname" $ }}-working-dir
             {{- end }}
-          {{- end }}
 {{- end }}
 {{- end }}

@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nectar-metrics.fullname" . }}-config
+  labels:
+    {{- include "nectar-metrics.labels" . | nindent 4 }}
+data:
+  # Mounted at /etc/nectar/metrics.ini, the app's default config file
+  # location, so the collectors need no --config-file argument.
+  # No log_dir: oslo.log writes to stderr, which Kubernetes captures.
+  # Secrets ([service_auth] password, [sentry] dsn) are layered on
+  # top via secrets.conf in /etc/nectar-metrics/nectar-metrics.conf.d,
+  # the app's default config dir.
+  metrics.ini: |
+    [metrics]
+    working_dir = /var/lib/nectar-metrics
+
+    [service_auth]
+    auth_type = password
+    auth_url = {{ .Values.conf.service_auth.auth_url }}
+    username = {{ .Values.conf.service_auth.username }}
+    project_name = {{ .Values.conf.service_auth.project_name }}
+    user_domain_id = default
+    project_domain_id = default
+
+    [gnocchi]
+    archive_policy = {{ .Values.conf.gnocchi.archive_policy }}
+
+    [victoria]
+    url = {{ include "nectar-metrics.writeUrl" . }}
+    {{- if .Values.conf.sentry.environment }}
+
+    [sentry]
+    environment = {{ .Values.conf.sentry.environment }}
+    {{- end }}

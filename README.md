@@ -25,8 +25,10 @@ Ceilometer-scale telemetry stack is a separate installation.
   `components.vmstack=false` first.
 - Vault agent injection for the OpenStack credentials: the vault
   secret's key/value pairs are rendered as the `[openstack]` section
-  of metrics.ini. Set `vault.enabled=false` on clusters without
-  Vault to fall back to a values-rendered Secret.
+  of metrics.ini. A `sentry_dsn` key is special-cased into a
+  `[sentry]` section instead, enabling GlitchTip/Sentry error
+  reporting. Set `vault.enabled=false` on clusters without Vault to
+  fall back to a values-rendered Secret.
 - A container image for the collectors
   (`registry.rc.nectar.org.au/nectar/nectar-metrics`) built from the
   nectar-metrics repo.

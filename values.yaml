@@ -138,14 +138,18 @@ collectors:
 
 # OpenStack credentials come from Vault (agent injection) in
 # production: the vault secret's key/value pairs are rendered as the
-# [openstack] section of metrics.ini.
+# [openstack] section of metrics.ini. A sentry_dsn key is
+# special-cased into the [sentry] section instead, so the collectors
+# report unhandled exceptions and ERROR level log messages to
+# GlitchTip/Sentry.
 vault:
   enabled: true
   role: 'k8s'
   settings_secret: 'path/to/vault/secret'
 
-# Non-secret collector configuration. conf.openstack is only used as
-# a fallback when vault.enabled is false (dev/test clusters).
+# Non-secret collector configuration. conf.openstack and
+# conf.sentry.dsn are only used as fallbacks when vault.enabled is
+# false (dev/test clusters).
 conf:
   openstack:
     user: username
@@ -155,6 +159,13 @@ conf:
     zone: nova
   gnocchi:
     archive_policy: stats
+  # GlitchTip/Sentry error reporting. In production the DSN comes
+  # from the sentry_dsn key of the Vault settings secret; dsn here is
+  # the vault.enabled=false fallback. environment applies in both
+  # modes.
+  sentry:
+    dsn: ''
+    environment: ''
 
 # Nightly logical backup: full /api/v1/export streamed to an
 # S3-compatible bucket with rclone (restore via /api/v1/import). The

@@ -118,10 +118,10 @@ collectors:
       # scrape interval, hence the generous limit.
       resources:
         requests:
-          cpu: 50m
-          memory: 32Mi
+          cpu: 100m
+          memory: 160Mi
         limits:
-          memory: 128Mi
+          memory: 512Mi
     - name: cinder
       # Cinder metrics have no consumer and are due for removal.
       enabled: true
@@ -131,10 +131,10 @@ collectors:
       # Peak ~120Mi.
       resources:
         requests:
-          cpu: 50m
+          cpu: 100m
           memory: 160Mi
         limits:
-          memory: 256Mi
+          memory: 512Mi
 
 # Secrets come from Vault (agent injection) in production, following
 # the nectar-helm convention: the agent renders a secrets.conf
